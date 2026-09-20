@@ -365,19 +365,27 @@ NSString *const kShouldFixTitleViewBugKey = @"kShouldFixTitleViewBugKey";
 }
 
 - (UIView *)qmui_contentView {
-    if (QMUIHelper.isUsedLiquidGlass) {
-        for (UIView *subview in self.subviews) {
-            static NSString *clsString = nil;
-            if (!clsString) {
-                clsString = [NSString stringWithFormat:@"%@.%@%@", @"UIKit", @"NavigationBar", @"ContentView"];
-            }
-            if ([subview isKindOfClass:NSClassFromString(clsString)]) {
-                return subview;
-            }
+    // iOS 26 起（含 UIDesignRequiresCompatibility 兼容模式），visualProvider 换成了
+    // _UINavigationBarVisualProviderModernIOSSwift，不再提供 contentView 的 KVC 访问，
+    // 直接 valueForKeyPath 会抛 NSUnknownKeyException 崩溃。而 iOS 11 之后
+    // _UINavigationBarContentView 一直是 UINavigationBar 的直接子视图，所以统一优先
+    // 遍历 subviews 查找，找不到再退回 KVC，并用 try/catch 兜底防止崩溃。
+    for (UIView *subview in self.subviews) {
+        static NSString *clsString = nil;
+        if (!clsString) {
+            clsString = [NSString stringWithFormat:@"%@.%@%@", @"UIKit", @"NavigationBar", @"ContentView"];
         }
+        if ([subview isKindOfClass:NSClassFromString(clsString)]) {
+            return subview;
+        }
+    }
+    if (QMUIHelper.isUsedLiquidGlass) {
         return nil;
-    } else {
+    }
+    @try {
         return [self valueForKeyPath:@"visualProvider.contentView"];
+    } @catch (NSException *exception) {
+        return nil;
     }
 }
 

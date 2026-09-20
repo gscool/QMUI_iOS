@@ -82,7 +82,13 @@ QMUISynthesizeIdStrongProperty(qmui_specifiedTextColor, setQmui_specifiedTextCol
     __block UILabel *backButtonLabel = nil;
     [self.qmui_contentView.subviews enumerateObjectsWithOptions:NSEnumerationReverse usingBlock:^(__kindof UIView * _Nonnull subview, NSUInteger idx, BOOL * _Nonnull stop) {
         if ([subview isKindOfClass:NSClassFromString(@"_UIButtonBarButton")]) {
-            UIButton *titleButton = [subview valueForKeyPath:@"visualProvider.titleButton"];
+            // iOS 26 起 visualProvider 不再提供 titleButton 的 KVC 访问,直接取值会抛
+            // NSUnknownKeyException,这里用 try/catch 兜底,取不到就当作没有返回按钮 Label
+            UIButton *titleButton = nil;
+            @try {
+                titleButton = [subview valueForKeyPath:@"visualProvider.titleButton"];
+            } @catch (NSException *exception) {
+            }
             backButtonLabel = titleButton.titleLabel;
             *stop = YES;
         }
